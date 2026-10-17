@@ -1,334 +1,312 @@
 import * as THREE from 'three';
+import { CyberOcto, COLOR_THEMES } from './octo';
+import { MultiScaleEnvironment, BIOMES } from './environment';
+import { OctoAudioSynth } from './audio';
 
-// --- Global State & Configuration ---
-interface OctoTentacle {
-  segments: THREE.Vector3[];
-  line: THREE.Line;
-  angleOffset: number;
-  length: number;
-}
-
-class ScalingOctoEngine {
+class ScalingOctoJourneyApp {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
   private canvas: HTMLCanvasElement;
-  
-  // Objects
-  private coreMesh!: THREE.Mesh;
-  private tentacles: OctoTentacle[] = [];
-  private particleSystem!: THREE.Points;
-  private particleCount = 2000;
-  
-  // Interactive variables
-  private mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
-  private scaleExponent = -9; // Starts at nanometer / deep bio scale
-  private pulseFactor = 0;
+
+  // Components
+  private octo: CyberOcto;
+  private env: MultiScaleEnvironment;
+  private audio: OctoAudioSynth;
+
+  // Lighting
+  private ambientLight!: THREE.AmbientLight;
+  private keyLight!: THREE.PointLight;
+  private rimLight!: THREE.PointLight;
+
+  // Interactive controls state
+  private mouse = {
+    x: 0,
+    y: 0,
+    targetX: 0,
+    targetY: 0,
+    isDragging: false,
+    prevX: 0,
+    prevY: 0
+  };
+  private orbitAngles = { theta: 0, phi: 0, targetTheta: 0, targetPhi: 0 };
+  private cameraDistance = 18;
+  private targetCameraDistance = 18;
+
+  // Animation & Telemetry
   private clock = new THREE.Clock();
   private frameCount = 0;
-  private lastFpsUpdate = 0;
-  
-  // Audio synth context (lazy loaded on user interaction)
-  private audioCtx: AudioContext | null = null;
+  private lastFpsTime = 0;
+  private currentBiomeIdx = 1;
 
   constructor() {
     this.canvas = document.getElementById('webgl-canvas') as HTMLCanvasElement;
-    
-    // Scene setup
-    this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x030712, 0.035);
 
-    // Camera setup
+    // 1. Scene & Fog Setup
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.FogExp2(BIOMES[1].fogColor, BIOMES[1].fogDensity);
+
+    // 2. Camera Setup
     this.camera = new THREE.PerspectiveCamera(
       60,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      1200
     );
-    this.camera.position.set(0, 0, 18);
+    this.camera.position.set(0, 0, this.cameraDistance);
 
-    // Renderer setup
+    // 3. Renderer Setup
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
-      alpha: true
+      alpha: true,
+      powerPreference: 'high-performance'
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
+    // 4. Initialize Core Systems
     this.initLights();
-    this.initOctoCore();
-    this.initTentacles();
-    this.initCosmicParticles();
-    this.setupEventListeners();
-    this.updateHUD();
+    this.env = new MultiScaleEnvironment(this.scene);
+    this.octo = new CyberOcto(this.scene);
+    this.audio = new OctoAudioSynth();
 
-    // Start render loop
+    // 5. Setup Event Listeners & UI Binding
+    this.setupEventListeners();
+    this.setupUI();
+
+    // 6. Start Render Loop
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
   }
 
   private initLights() {
-    const ambientLight = new THREE.AmbientLight(0x0f172a, 2.0);
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0x0a101f, 2.5);
+    this.scene.add(this.ambientLight);
 
-    const pointLight = new THREE.PointLight(0x00ffcc, 4, 50);
-    pointLight.position.set(0, 0, 5);
-    this.scene.add(pointLight);
+    this.keyLight = new THREE.PointLight(0x00ffcc, 5, 60);
+    this.keyLight.position.set(0, 4, 10);
+    this.scene.add(this.keyLight);
 
-    const pinkLight = new THREE.PointLight(0xff0077, 3, 50);
-    pinkLight.position.set(0, 5, -5);
-    this.scene.add(pinkLight);
-  }
-
-  private initOctoCore() {
-    // Bioluminescent cyber core
-    const coreGeo = new THREE.IcosahedronGeometry(1.6, 3);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x00ffcc,
-      wireframe: true,
-      emissive: 0x006655,
-      emissiveIntensity: 0.8,
-      roughness: 0.1,
-      metalness: 0.8
-    });
-    this.coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    this.scene.add(this.coreMesh);
-
-    // Inner glowing sphere
-    const innerGeo = new THREE.SphereGeometry(1.0, 32, 32);
-    const innerMat = new THREE.MeshBasicMaterial({
-      color: 0xff0077,
-      transparent: true,
-      opacity: 0.6
-    });
-    const innerSphere = new THREE.Mesh(innerGeo, innerMat);
-    this.coreMesh.add(innerSphere);
-  }
-
-  private initTentacles() {
-    const tentacleCount = 8;
-    const segmentCount = 30;
-    const tentacleLength = 8.5;
-
-    for (let i = 0; i < tentacleCount; i++) {
-      const angle = (i / tentacleCount) * Math.PI * 2;
-      const points: THREE.Vector3[] = [];
-
-      for (let s = 0; s < segmentCount; s++) {
-        points.push(new THREE.Vector3(0, 0, 0));
-      }
-
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
-      
-      // Dynamic cyber gradient for tentacles
-      const material = new THREE.LineBasicMaterial({
-        color: i % 2 === 0 ? 0x00ffcc : 0xff0077,
-        linewidth: 2,
-        transparent: true,
-        opacity: 0.85
-      });
-
-      const line = new THREE.Line(geometry, material);
-      this.scene.add(line);
-
-      this.tentacles.push({
-        segments: points,
-        line,
-        angleOffset: angle,
-        length: tentacleLength
-      });
-    }
-  }
-
-  private initCosmicParticles() {
-    const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(this.particleCount * 3);
-    const colors = new Float32Array(this.particleCount * 3);
-
-    for (let i = 0; i < this.particleCount; i++) {
-      const i3 = i * 3;
-      const radius = 10 + Math.random() * 40;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = (Math.random() - 0.5) * Math.PI;
-
-      positions[i3] = radius * Math.cos(theta) * Math.cos(phi);
-      positions[i3 + 1] = radius * Math.sin(phi);
-      positions[i3 + 2] = radius * Math.sin(theta) * Math.cos(phi);
-
-      const isCyan = Math.random() > 0.4;
-      colors[i3] = isCyan ? 0.0 : 1.0;
-      colors[i3 + 1] = isCyan ? 1.0 : 0.0;
-      colors[i3 + 2] = isCyan ? 0.8 : 0.4;
-    }
-
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const mat = new THREE.PointsMaterial({
-      size: 0.12,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.75,
-      blending: THREE.AdditiveBlending
-    });
-
-    this.particleSystem = new THREE.Points(geo, mat);
-    this.scene.add(this.particleSystem);
+    this.rimLight = new THREE.PointLight(0xff0077, 4, 60);
+    this.rimLight.position.set(0, -6, -8);
+    this.scene.add(this.rimLight);
   }
 
   private setupEventListeners() {
+    // Window Resize
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    // Mouse Move (Ray/Pointer orientation)
     window.addEventListener('mousemove', (e) => {
       this.mouse.targetX = (e.clientX / window.innerWidth - 0.5) * 2;
       this.mouse.targetY = -(e.clientY / window.innerHeight - 0.5) * 2;
+
+      if (this.mouse.isDragging) {
+        const deltaX = e.clientX - this.mouse.prevX;
+        const deltaY = e.clientY - this.mouse.prevY;
+        this.orbitAngles.targetTheta += deltaX * 0.006;
+        this.orbitAngles.targetPhi = Math.max(
+          -Math.PI / 3,
+          Math.min(Math.PI / 3, this.orbitAngles.targetPhi - deltaY * 0.006)
+        );
+        this.mouse.prevX = e.clientX;
+        this.mouse.prevY = e.clientY;
+      }
     });
 
+    // Pointer drag for camera orbit
+    this.canvas.addEventListener('mousedown', (e) => {
+      this.mouse.isDragging = true;
+      this.mouse.prevX = e.clientX;
+      this.mouse.prevY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      this.mouse.isDragging = false;
+    });
+
+    // Wheel: zoom camera and scale shift
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = Math.sign(e.deltaY);
-      this.scaleExponent = Math.min(26, Math.max(-18, this.scaleExponent + delta));
-      this.updateHUD();
-      this.triggerScalePulse();
+      if (delta > 0 && this.currentBiomeIdx < BIOMES.length - 1) {
+        this.switchBiome(this.currentBiomeIdx + 1);
+      } else if (delta < 0 && this.currentBiomeIdx > 0) {
+        this.switchBiome(this.currentBiomeIdx - 1);
+      }
     }, { passive: false });
 
-    const statusCore = document.querySelector('.status-core');
-    statusCore?.addEventListener('click', () => {
-      this.pulseCore();
-      this.playSynthPing();
+    // Keyboard Shortcuts (1-4: Dimensions, Space: Pulse, M: Sound)
+    window.addEventListener('keydown', (e) => {
+      if (e.key >= '1' && e.key <= '4') {
+        const idx = parseInt(e.key) - 1;
+        this.switchBiome(idx);
+      } else if (e.code === 'Space') {
+        e.preventDefault();
+        this.triggerNeuralPulse();
+      } else if (e.key === 'm' || e.key === 'M') {
+        this.toggleSound();
+      }
     });
   }
 
-  private pulseCore() {
-    this.pulseFactor = 1.0;
-    const label = document.getElementById('status-label');
-    if (label) {
-      label.innerText = `DIMENSIONAL WARP DISCHARGED (EXP: 10^${this.scaleExponent}m)`;
-      setTimeout(() => {
-        label.innerText = 'OCTO NEURAL LINK SYNCHRONIZED';
-      }, 1500);
+  private setupUI() {
+    // Dimension Navigation Pills
+    const dimPills = document.querySelectorAll('.dim-pill');
+    dimPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const idx = parseInt(pill.getAttribute('data-biome') || '0');
+        this.switchBiome(idx);
+      });
+    });
+
+    // Discharge Button
+    const dischargeBtn = document.getElementById('btn-discharge');
+    dischargeBtn?.addEventListener('click', () => {
+      this.triggerNeuralPulse();
+    });
+
+    // Sound Toggle Button
+    const soundBtn = document.getElementById('btn-sound');
+    soundBtn?.addEventListener('click', () => {
+      this.toggleSound();
+    });
+
+    // Theme Picker Dots
+    const themeDots = document.querySelectorAll('.theme-dot');
+    themeDots.forEach((dot) => {
+      dot.addEventListener('click', () => {
+        const theme = dot.getAttribute('data-theme') || 'biolum';
+        this.octo.setTheme(theme);
+
+        themeDots.forEach(d => d.classList.remove('active'));
+        dot.classList.add('active');
+
+        // Update keylight color to match theme
+        const activeTheme = COLOR_THEMES[theme];
+        if (activeTheme) {
+          this.keyLight.color.setHex(activeTheme.primary);
+          this.rimLight.color.setHex(activeTheme.secondary);
+        }
+      });
+    });
+  }
+
+  private switchBiome(idx: number) {
+    if (idx < 0 || idx >= BIOMES.length) return;
+    this.currentBiomeIdx = idx;
+    this.env.setBiome(idx);
+
+    const biome = BIOMES[idx];
+
+    // Update Subtitle
+    const subTitleEl = document.getElementById('biome-subtitle');
+    if (subTitleEl) {
+      subTitleEl.innerText = `${biome.subName} (${biome.scaleLabel})`;
     }
-  }
 
-  private triggerScalePulse() {
-    this.pulseFactor = Math.max(this.pulseFactor, 0.5);
-  }
-
-  private playSynthPing() {
-    try {
-      if (!this.audioCtx) {
-        this.audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      }
-      if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
-      
-      const now = this.audioCtx.currentTime;
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-
-      // Cyber chord harmonic
-      const baseFreq = 220 * Math.pow(2, (this.scaleExponent % 12) / 12);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(baseFreq, now);
-      osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, now + 0.35);
-
-      gain.gain.setValueAtTime(0.2, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-
-      osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.6);
-    } catch {
-      // Audio might be blocked by autoplay policies
-    }
-  }
-
-  private updateHUD() {
+    // Update Scale Telemetry
     const scaleExpEl = document.getElementById('scale-exp');
     if (scaleExpEl) {
-      scaleExpEl.innerText = `${this.scaleExponent}`;
+      scaleExpEl.innerText = `${biome.scaleExp}`;
+    }
+
+    // Update Pills Active State
+    const dimPills = document.querySelectorAll('.dim-pill');
+    dimPills.forEach((p) => {
+      const bIdx = parseInt(p.getAttribute('data-biome') || '-1');
+      if (bIdx === idx) p.classList.add('active');
+      else p.classList.remove('active');
+    });
+
+    // Audio frequency update & discharge ping
+    this.audio.updateDroneByScale(biome.scaleExp);
+    this.audio.playSonarPing(0.8 + idx * 0.2);
+
+    // Camera push forward/backward warp effect
+    this.targetCameraDistance = 14 + (idx % 2) * 5;
+  }
+
+  private triggerNeuralPulse() {
+    this.octo.triggerDischarge();
+    this.audio.playWarpDischarge();
+
+    const label = document.getElementById('status-label');
+    if (label) {
+      label.innerText = '⚡ WARP SINGULARITY DISCHARGED · DIMENSIONAL FLUX 100%';
+      label.style.color = '#00ffcc';
+      setTimeout(() => {
+        label.innerText = 'NEURAL LINK ENGAGED · CLICK TO DISCHARGE';
+        label.style.color = '#f1f5f9';
+      }, 1600);
+    }
+  }
+
+  private toggleSound() {
+    const isNowPlaying = this.audio.toggleMute();
+    const soundBtn = document.getElementById('btn-sound');
+    const soundLabel = document.getElementById('sound-label');
+
+    if (soundBtn && soundLabel) {
+      if (isNowPlaying) {
+        soundBtn.classList.add('active');
+        soundLabel.innerText = 'AUDIO: ON';
+      } else {
+        soundBtn.classList.remove('active');
+        soundLabel.innerText = 'AUDIO: OFF';
+      }
     }
   }
 
   private animate() {
     requestAnimationFrame(this.animate);
 
+    const delta = this.clock.getDelta();
     const elapsedTime = this.clock.getElapsedTime();
     this.frameCount++;
 
-    // FPS calculation
-    if (elapsedTime - this.lastFpsUpdate >= 0.5) {
-      const fps = Math.round(this.frameCount / (elapsedTime - this.lastFpsUpdate));
+    // Calculate FPS
+    if (elapsedTime - this.lastFpsTime >= 0.5) {
+      const fps = Math.round(this.frameCount / (elapsedTime - this.lastFpsTime));
       const fpsEl = document.getElementById('telemetry-fps');
-      if (fpsEl) {
-        fpsEl.innerText = `${fps} FPS`;
-      }
+      if (fpsEl) fpsEl.innerText = `${fps} FPS`;
       this.frameCount = 0;
-      this.lastFpsUpdate = elapsedTime;
+      this.lastFpsTime = elapsedTime;
     }
 
-    // Smooth camera / orientation follow mouse
-    this.mouse.x += (this.mouse.targetX - this.mouse.x) * 0.05;
-    this.mouse.y += (this.mouse.targetY - this.mouse.y) * 0.05;
-    
-    this.camera.position.x = this.mouse.x * 4;
-    this.camera.position.y = this.mouse.y * 3;
+    // Smooth Orbit & Mouse tracking
+    this.mouse.x += (this.mouse.targetX - this.mouse.x) * 0.08;
+    this.mouse.y += (this.mouse.targetY - this.mouse.y) * 0.08;
+
+    this.orbitAngles.theta += (this.orbitAngles.targetTheta - this.orbitAngles.theta) * 0.08;
+    this.orbitAngles.phi += (this.orbitAngles.targetPhi - this.orbitAngles.phi) * 0.08;
+    this.cameraDistance += (this.targetCameraDistance - this.cameraDistance) * 0.05;
+
+    // Spherical camera position
+    const radius = this.cameraDistance;
+    const cosPhi = Math.cos(this.orbitAngles.phi);
+    this.camera.position.x = radius * cosPhi * Math.sin(this.orbitAngles.theta) + this.mouse.x * 2.0;
+    this.camera.position.y = radius * Math.sin(this.orbitAngles.phi) + this.mouse.y * 1.5;
+    this.camera.position.z = radius * cosPhi * Math.cos(this.orbitAngles.theta);
     this.camera.lookAt(0, 0, 0);
 
-    // Pulse decay
-    if (this.pulseFactor > 0) {
-      this.pulseFactor *= 0.94;
-      if (this.pulseFactor < 0.01) this.pulseFactor = 0;
-    }
+    // Look vector for Octo eyes and head orientation
+    const targetDir = new THREE.Vector3(this.mouse.x * 8, this.mouse.y * 6, 12);
 
-    // Rotate core with pulse distortion
-    const scale = 1.0 + Math.sin(elapsedTime * 2.5) * 0.08 + this.pulseFactor * 0.4;
-    this.coreMesh.scale.set(scale, scale, scale);
-    this.coreMesh.rotation.x = elapsedTime * 0.35;
-    this.coreMesh.rotation.y = elapsedTime * 0.45;
-
-    // Undulate 8 tentacles with inverse kinematics wave formula
-    this.tentacles.forEach((tentacle) => {
-      const { segments, line, angleOffset, length } = tentacle;
-      const count = segments.length;
-
-      for (let s = 0; s < count; s++) {
-        const t = s / (count - 1);
-        const dist = t * length * (1 + this.pulseFactor * 0.3);
-        
-        // Compound wave dynamics
-        const wave1 = Math.sin(elapsedTime * 3.0 + t * 6.0 + angleOffset) * (0.8 + t * 1.5);
-        const wave2 = Math.cos(elapsedTime * 2.0 - t * 4.0) * (0.5 + t);
-
-        const x = Math.cos(angleOffset) * dist + Math.sin(angleOffset) * wave1;
-        const y = Math.sin(angleOffset) * dist - Math.cos(angleOffset) * wave1;
-        const z = wave2 - Math.sin(t * Math.PI) * 1.5;
-
-        segments[s].set(x, y, z);
-      }
-
-      line.geometry.setFromPoints(segments);
-    });
-
-    // Rotate background cosmic particles
-    if (this.particleSystem) {
-      this.particleSystem.rotation.y = elapsedTime * 0.03;
-      this.particleSystem.rotation.x = elapsedTime * 0.015;
-    }
+    // Update Subsystems
+    this.octo.update(delta, elapsedTime, targetDir);
+    this.env.update(delta, elapsedTime);
 
     this.renderer.render(this.scene, this.camera);
   }
 }
 
-// Instantiate engine when DOM is ready
+// Bootstrap application on DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => {
-  new ScalingOctoEngine();
+  new ScalingOctoJourneyApp();
 });
