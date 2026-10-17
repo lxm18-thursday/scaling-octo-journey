@@ -16,11 +16,19 @@
         <!-- Top Navigation & Brand -->
         <header class="hud-header">
           <div class="hud-top-bar">
-            <div class="hud-badge">CI/CD AUTONOMOUS ENGINE · V0.2.0 · LIVE</div>
+            <div class="hud-badge">CI/CD AUTONOMOUS ENGINE · V0.3.0 · FULL BLOOM HDR</div>
             <div class="hud-actions-right">
+              <button id="btn-cinematic" class="hud-pill-btn" title="Toggle Cinematic Odyssey Camera [C]">
+                <span class="icon">🎬</span>
+                <span id="cinematic-label">ODYSSEY: MANUAL</span>
+              </button>
               <button id="btn-sound" class="hud-pill-btn sound-btn" title="Toggle Procedural Audio [M]">
                 <span class="icon">🔊</span>
                 <span id="sound-label">AUDIO: OFF</span>
+              </button>
+              <button id="btn-codex" class="hud-pill-btn" title="Open Specimen Codex & Logs [T]">
+                <span class="icon">📖</span>
+                <span>CODEX</span>
               </button>
               <div class="theme-picker" id="theme-picker">
                 <button class="theme-dot dot-biolum active" data-theme="biolum" title="Bioluminescence"></button>
@@ -63,7 +71,7 @@
 
         <!-- Center Interactive Core Trigger -->
         <div class="hud-center-status">
-          <button class="status-core" id="btn-discharge" title="Click or Spacebar to Trigger Neural Pulse">
+          <button class="status-core" id="btn-discharge" title="Click or Spacebar to Trigger Neural Pulse & Plasma Jet">
             <span class="pulse-dot"></span>
             <span class="status-text" id="status-label">NEURAL LINK ENGAGED · CLICK TO DISCHARGE</span>
           </button>
@@ -77,7 +85,11 @@
               <span class="value" id="telemetry-scale">10<sup id="scale-exp">1</sup> m</span>
             </div>
             <div class="telemetry-item">
-              <span class="label">NEURAL ARRAYS</span>
+              <span class="label">ENERGY HARVEST</span>
+              <span class="value quanta-val" id="telemetry-quanta">0 QUANTA</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">TENTACLE ARRAYS</span>
               <span class="value" id="telemetry-tentacles">8 / 8 ACTIVE</span>
             </div>
             <div class="telemetry-item">
@@ -86,18 +98,80 @@
             </div>
             <div class="telemetry-item">
               <span class="label">ACTIONS CI</span>
-              <a href="https://github.com/lxm18-thursday/scaling-octo-journey/actions" target="_blank" rel="noopener noreferrer" class="value ci-good">RUN #1 PASS ✓</a>
+              <a href="https://github.com/lxm18-thursday/scaling-octo-journey/actions" target="_blank" rel="noopener noreferrer" class="value ci-good">RUN #3 PASS ✓</a>
             </div>
           </div>
           
           <div class="hud-controls-hint">
             <span class="key-badge">[Scroll / 1-4] Warp Scale</span>
-            <span class="key-badge">[Drag] Cephalopod View</span>
+            <span class="key-badge">[Drag] Orbit View</span>
             <span class="key-badge">[Space] Neural Pulse</span>
             <span class="key-badge">[M] Sound</span>
+            <span class="key-badge">[C] Cinematic</span>
+            <span class="key-badge">[T] Codex</span>
           </div>
         </footer>
       </div>
+
+      <!-- Slide-out Specimen Codex & Scientific Lore Drawer -->
+      <aside class="codex-drawer" id="codex-drawer">
+        <div class="codex-header">
+          <div class="codex-tag">CLASSIFIED SPECIMEN LOG · #OCTO-889</div>
+          <button class="codex-close-btn" id="btn-close-codex" title="Close Codex [T]">✕</button>
+        </div>
+
+        <div class="codex-body">
+          <div class="codex-section">
+            <h3 class="codex-sec-title">CEPHALOPODA CYBERNETICA</h3>
+            <p class="codex-desc">
+              八爪跨尺度共生体。拥有 1 颗中央量子神经主脑与 8 套独立外周触须神经系统。生物荧光发色基团可跨越从普朗克微观奇点至超星系网格的数量级尺度。
+            </p>
+          </div>
+
+          <div class="codex-stats-grid">
+            <div class="codex-stat-card">
+              <div class="stat-name">SYSTEMIC HEART</div>
+              <div class="stat-value" id="codex-heart-a">56 BPM</div>
+              <div class="stat-sub">Central Circulatory Pump</div>
+            </div>
+            <div class="codex-stat-card">
+              <div class="stat-name">GILL HEARTS (B&C)</div>
+              <div class="stat-value" id="codex-heart-b">52 BPM</div>
+              <div class="stat-sub">Branchial Auxiliary Matrix</div>
+            </div>
+            <div class="codex-stat-card">
+              <div class="stat-name">MANTLE PRESSURE</div>
+              <div class="stat-value">14.8 MPa</div>
+              <div class="stat-sub">Hydrodynamic Jet Force</div>
+            </div>
+            <div class="codex-stat-card">
+              <div class="stat-name">QUANTA HARVESTED</div>
+              <div class="stat-value highlight" id="codex-quanta-harvested">0</div>
+              <div class="stat-sub">Total Absorbed Energy</div>
+            </div>
+          </div>
+
+          <div class="codex-section">
+            <h3 class="codex-sec-title">DIMENSIONAL ARCHIVE</h3>
+            <div class="lore-entry">
+              <div class="lore-title">01. QUANTUM FOAM (10⁻¹⁵m)</div>
+              <p class="lore-text">普朗克尺度下的亚原子弦网格，八爪触须折叠卡拉比-丘流形，汲取真空零点能量涨落。</p>
+            </div>
+            <div class="lore-entry">
+              <div class="lore-title">02. ABYSSAL TRENCH (10¹m)</div>
+              <p class="lore-text">地球深海热泉渊裂，冷泉硫化矿物颗粒与生物荧光浮游群交织成黑潮生态。</p>
+            </div>
+            <div class="lore-entry">
+              <div class="lore-title">03. CYBER MATRIX (10⁹m)</div>
+              <p class="lore-text">行星级硅基数字神经流网，数据光纤脉冲通过触须吸盘阵列实现光电转导。</p>
+            </div>
+            <div class="lore-entry">
+              <div class="lore-title">04. COSMIC NEBULA (10²⁴m)</div>
+              <p class="lore-text">跨星系超维引力编织，8 条触须舒展宛若星系对数螺旋悬臂，连接可观测宇宙边缘。</p>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

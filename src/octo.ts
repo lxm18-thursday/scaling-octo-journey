@@ -39,18 +39,13 @@ export const COLOR_THEMES: Record<string, ColorTheme> = {
   }
 };
 
-interface TentacleSegmentData {
-  mesh: THREE.Mesh;
-  suctionCups: THREE.Mesh[];
-}
-
 interface Tentacle {
   baseAngle: number;
   segments: THREE.Vector3[];
   tubeMesh: THREE.Line;
-  nodes: THREE.InstancedMesh;
   length: number;
   curlDirection: number;
+  tipPosition: THREE.Vector3;
 }
 
 export class CyberOcto {
@@ -65,7 +60,7 @@ export class CyberOcto {
   private tentacles: Tentacle[] = [];
   private suckersInstanced!: THREE.InstancedMesh;
   
-  // Discharge / Ink plasma shockwave
+  // Shockwave ring
   private shockwaveRing!: THREE.Mesh;
   private shockwaveScale = 0;
   private shockwaveOpacity = 0;
@@ -75,6 +70,7 @@ export class CyberOcto {
   private swimPhase = 0;
   private propulsionBoost = 0;
   private lookTarget = new THREE.Vector3(0, 0, 10);
+  private nearestTarget: THREE.Vector3 | null = null;
   
   // Materials list for theme updates
   private primaryMaterials: THREE.Material[] = [];
@@ -95,20 +91,20 @@ export class CyberOcto {
   }
 
   private createMantle() {
-    // Elegant cephalopod mantle (elongated dome)
-    const mantleGeo = new THREE.ConeGeometry(1.5, 4.2, 32, 16, true);
-    mantleGeo.rotateX(Math.PI); // Point mantle upwards / backwards
-    mantleGeo.translate(0, 1.2, 0);
+    // Elegant cephalopod mantle
+    const mantleGeo = new THREE.ConeGeometry(1.55, 4.4, 32, 16, true);
+    mantleGeo.rotateX(Math.PI);
+    mantleGeo.translate(0, 1.3, 0);
 
     const mantleMat = new THREE.MeshStandardMaterial({
       color: this.currentTheme.primary,
       wireframe: true,
       emissive: this.currentTheme.primary,
-      emissiveIntensity: 0.6,
-      roughness: 0.2,
+      emissiveIntensity: 0.7,
+      roughness: 0.15,
       metalness: 0.9,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.88
     });
     this.primaryMaterials.push(mantleMat);
 
@@ -116,15 +112,15 @@ export class CyberOcto {
     this.mantleGroup.add(this.mantleOuter);
 
     // Inner glowing brain / singularity sphere
-    const coreGeo = new THREE.IcosahedronGeometry(1.1, 3);
+    const coreGeo = new THREE.IcosahedronGeometry(1.15, 3);
     const coreMat = new THREE.MeshStandardMaterial({
       color: this.currentTheme.secondary,
       emissive: this.currentTheme.secondary,
-      emissiveIntensity: 1.2,
+      emissiveIntensity: 1.4,
       roughness: 0.1,
-      metalness: 0.5,
+      metalness: 0.6,
       transparent: true,
-      opacity: 0.75
+      opacity: 0.8
     });
     this.secondaryMaterials.push(coreMat);
 
@@ -134,8 +130,8 @@ export class CyberOcto {
   }
 
   private createEyes() {
-    const eyeGeo = new THREE.SphereGeometry(0.38, 16, 16);
-    const pupilGeo = new THREE.SphereGeometry(0.18, 16, 16);
+    const eyeGeo = new THREE.SphereGeometry(0.4, 16, 16);
+    const pupilGeo = new THREE.SphereGeometry(0.2, 16, 16);
 
     const eyeMat = new THREE.MeshStandardMaterial({
       color: 0x050b14,
@@ -150,17 +146,17 @@ export class CyberOcto {
 
     // Left eye
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-1.1, -0.4, 0.7);
+    leftEye.position.set(-1.15, -0.4, 0.75);
     const leftPupil = new THREE.Mesh(pupilGeo, pupilMat);
-    leftPupil.position.set(0, 0, 0.28);
+    leftPupil.position.set(0, 0, 0.3);
     leftEye.add(leftPupil);
     this.mantleGroup.add(leftEye);
 
     // Right eye
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(1.1, -0.4, 0.7);
+    rightEye.position.set(1.15, -0.4, 0.75);
     const rightPupil = new THREE.Mesh(pupilGeo, pupilMat);
-    rightPupil.position.set(0, 0, 0.28);
+    rightPupil.position.set(0, 0, 0.3);
     rightEye.add(rightPupil);
     this.mantleGroup.add(rightEye);
 
@@ -170,11 +166,11 @@ export class CyberOcto {
   private createNeuralRings() {
     const ringCount = 3;
     for (let i = 0; i < ringCount; i++) {
-      const ringGeo = new THREE.TorusGeometry(1.8 + i * 0.35, 0.02, 16, 64);
+      const ringGeo = new THREE.TorusGeometry(1.85 + i * 0.38, 0.025, 16, 64);
       const ringMat = new THREE.MeshBasicMaterial({
         color: i % 2 === 0 ? this.currentTheme.primary : this.currentTheme.secondary,
         transparent: true,
-        opacity: 0.5
+        opacity: 0.6
       });
       if (i % 2 === 0) this.primaryMaterials.push(ringMat);
       else this.secondaryMaterials.push(ringMat);
@@ -190,11 +186,11 @@ export class CyberOcto {
 
   private createTentacles() {
     const tentacleCount = 8;
-    const segmentCount = 35;
+    const segmentCount = 36;
     const totalSuckers = tentacleCount * segmentCount;
 
     // Glowing suction cup instanced nodes
-    const suckerGeo = new THREE.SphereGeometry(0.08, 8, 8);
+    const suckerGeo = new THREE.SphereGeometry(0.09, 8, 8);
     const suckerMat = new THREE.MeshBasicMaterial({
       color: this.currentTheme.primary
     });
@@ -217,7 +213,7 @@ export class CyberOcto {
         color: i % 2 === 0 ? this.currentTheme.primary : this.currentTheme.secondary,
         linewidth: 2,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.85
       });
       if (i % 2 === 0) this.primaryMaterials.push(lineMat);
       else this.secondaryMaterials.push(lineMat);
@@ -229,15 +225,15 @@ export class CyberOcto {
         baseAngle: angle,
         segments: points,
         tubeMesh: line,
-        nodes: this.suckersInstanced,
-        length: 10.5,
-        curlDirection: i % 2 === 0 ? 1 : -1
+        length: 11.0,
+        curlDirection: i % 2 === 0 ? 1 : -1,
+        tipPosition: new THREE.Vector3(0, 0, 0)
       });
     }
   }
 
   private createShockwave() {
-    const geo = new THREE.RingGeometry(0.5, 0.9, 48);
+    const geo = new THREE.RingGeometry(0.6, 1.1, 48);
     const mat = new THREE.MeshBasicMaterial({
       color: this.currentTheme.primary,
       side: THREE.DoubleSide,
@@ -257,6 +253,22 @@ export class CyberOcto {
     this.shockwaveOpacity = 1.0;
   }
 
+  public getSiphonPosition(): THREE.Vector3 {
+    return new THREE.Vector3(0, 1.2, 0).applyMatrix4(this.group.matrixWorld);
+  }
+
+  public getTentacleTips(): THREE.Vector3[] {
+    return this.tentacles.map(t => t.tipPosition.clone().applyMatrix4(this.group.matrixWorld));
+  }
+
+  public setNearestTarget(target: THREE.Vector3 | null) {
+    this.nearestTarget = target;
+  }
+
+  public getCurrentTheme(): ColorTheme {
+    return this.currentTheme;
+  }
+
   public setTheme(themeKey: string) {
     const theme = COLOR_THEMES[themeKey];
     if (!theme) return;
@@ -274,25 +286,24 @@ export class CyberOcto {
   }
 
   public update(delta: number, elapsedTime: number, targetDir: THREE.Vector3) {
-    // Interpolate look direction
-    this.lookTarget.lerp(targetDir, 0.05);
+    this.lookTarget.lerp(targetDir, 0.06);
 
-    // Cephalopod swimming cycle: rhythmic mantle contraction & propulsion
-    this.swimPhase += delta * (1.8 + this.propulsionBoost * 3.0);
+    // Cephalopod hydrodynamic breathing & propulsion
+    this.swimPhase += delta * (1.9 + this.propulsionBoost * 3.5);
     const contract = Math.sin(this.swimPhase);
-    const mantleSquashY = 1.0 + contract * 0.18 + this.propulsionBoost * 0.3;
-    const mantleSquashXZ = 1.0 - contract * 0.12 - this.propulsionBoost * 0.2;
+    const mantleSquashY = 1.0 + contract * 0.18 + this.propulsionBoost * 0.35;
+    const mantleSquashXZ = 1.0 - contract * 0.14 - this.propulsionBoost * 0.25;
 
     this.mantleOuter.scale.set(mantleSquashXZ, mantleSquashY, mantleSquashXZ);
-    this.mantleCore.rotation.y = elapsedTime * 0.8;
+    this.mantleCore.rotation.y = elapsedTime * 0.9;
     this.mantleCore.rotation.z = Math.sin(elapsedTime) * 0.3;
 
     // Rotate neural rings
     this.neuralRings.forEach((ring, idx) => {
-      ring.rotation.z = elapsedTime * (0.4 + idx * 0.2);
+      ring.rotation.z = elapsedTime * (0.45 + idx * 0.25);
     });
 
-    // Make eyes look towards pointer
+    // Eye gaze tracking
     if (this.eyes) {
       this.eyes.left.lookAt(this.lookTarget);
       this.eyes.right.lookAt(this.lookTarget);
@@ -306,64 +317,77 @@ export class CyberOcto {
 
     // Shockwave expansion
     if (this.shockwaveOpacity > 0.01) {
-      this.shockwaveScale += delta * 18;
-      this.shockwaveOpacity *= 0.92;
+      this.shockwaveScale += delta * 20;
+      this.shockwaveOpacity *= 0.91;
       this.shockwaveRing.scale.set(this.shockwaveScale, this.shockwaveScale, this.shockwaveScale);
       (this.shockwaveRing.material as THREE.MeshBasicMaterial).opacity = this.shockwaveOpacity;
     } else {
       (this.shockwaveRing.material as THREE.MeshBasicMaterial).opacity = 0;
     }
 
-    // Update 8 tentacles inverse wave kinematics
+    // Update 8 tentacles with bioluminescent wave dynamics & target attraction
     const dummyMatrix = new THREE.Matrix4();
     let suckerIndex = 0;
 
-    this.tentacles.forEach((tentacle) => {
+    this.tentacles.forEach((tentacle, tentacleIdx) => {
       const { baseAngle, segments, tubeMesh, length, curlDirection } = tentacle;
       const segCount = segments.length;
 
-      // Base anchor at bottom rim of mantle
-      const baseRadius = 1.1;
+      // Base anchor on bottom rim of mantle
+      const baseRadius = 1.15;
       const rootX = Math.cos(baseAngle) * baseRadius;
       const rootZ = Math.sin(baseAngle) * baseRadius;
-      const rootY = -0.8;
+      const rootY = -0.85;
 
       segments[0].set(rootX, rootY, rootZ);
 
+      // Continuous bioluminescent wave travelling down tentacle
+      const travellingWave = (elapsedTime * 4.0 - tentacleIdx * 0.4) % (Math.PI * 2);
+
       for (let s = 1; s < segCount; s++) {
-        const t = s / (segCount - 1); // 0.0 at root, 1.0 at tip
+        const t = s / (segCount - 1);
         const currentDist = t * length;
 
-        // Wave propagation along tentacle
-        const waveProgress = this.swimPhase - t * 4.5;
-        const undulation = Math.sin(waveProgress) * (0.4 + t * 1.8);
-        const flare = Math.cos(waveProgress * 0.7) * (0.3 + t * 1.2);
+        // Wave dynamics
+        const waveProgress = this.swimPhase - t * 4.8;
+        const undulation = Math.sin(waveProgress) * (0.45 + t * 2.0);
+        const flare = Math.cos(waveProgress * 0.7) * (0.35 + t * 1.3);
 
-        // Jetting stream effect during swim contraction
-        const streamline = (1.0 - contract * 0.4) * (1.0 - this.propulsionBoost * 0.5);
+        const streamline = (1.0 - contract * 0.45) * (1.0 - this.propulsionBoost * 0.5);
 
-        const x = Math.cos(baseAngle) * (baseRadius + currentDist * 0.35 * streamline) +
-                  Math.sin(baseAngle) * undulation * curlDirection;
-        const z = Math.sin(baseAngle) * (baseRadius + currentDist * 0.35 * streamline) -
-                  Math.cos(baseAngle) * undulation * curlDirection;
-        const y = rootY - currentDist * (0.8 + contract * 0.2) + flare;
+        let x = Math.cos(baseAngle) * (baseRadius + currentDist * 0.35 * streamline) +
+                Math.sin(baseAngle) * undulation * curlDirection;
+        let z = Math.sin(baseAngle) * (baseRadius + currentDist * 0.35 * streamline) -
+                Math.cos(baseAngle) * undulation * curlDirection;
+        let y = rootY - currentDist * (0.82 + contract * 0.22) + flare;
+
+        // Interactive Target Reaching (IK attraction towards nearest energy orb)
+        if (this.nearestTarget && t > 0.5) {
+          const reachWeight = Math.pow((t - 0.5) * 2, 2) * 0.35;
+          x += (this.nearestTarget.x - x) * reachWeight;
+          y += (this.nearestTarget.y - y) * reachWeight;
+          z += (this.nearestTarget.z - z) * reachWeight;
+        }
 
         segments[s].set(x, y, z);
 
-        // Suction cup matrix transform
-        const suckerScale = (1.0 - t * 0.7) * (0.9 + Math.sin(elapsedTime * 4 + s) * 0.15);
+        // Suction cup matrix transform with travelling neural pulse
+        const pulseHighlight = Math.abs(Math.sin(travellingWave - t * 5));
+        const suckerScale = (1.0 - t * 0.65) * (0.8 + pulseHighlight * 0.4);
         dummyMatrix.makeScale(suckerScale, suckerScale, suckerScale);
         dummyMatrix.setPosition(x, y, z);
         this.suckersInstanced.setMatrixAt(suckerIndex++, dummyMatrix);
       }
 
+      // Record tip position
+      tentacle.tipPosition.copy(segments[segCount - 1]);
       tubeMesh.geometry.setFromPoints(segments);
     });
 
     this.suckersInstanced.instanceMatrix.needsUpdate = true;
 
-    // Slight celestial floating drift of the entire octo body
-    this.group.position.y = Math.sin(elapsedTime * 1.2) * 0.4;
-    this.group.rotation.y = Math.sin(elapsedTime * 0.5) * 0.15;
+    // Hydrodynamic celestial drift
+    this.group.position.y = Math.sin(elapsedTime * 1.3) * 0.45;
+    this.group.rotation.y = Math.sin(elapsedTime * 0.6) * 0.18;
   }
 }
