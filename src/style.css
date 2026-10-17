@@ -1,0 +1,183 @@
+:root {
+  --primary-glow: #00ffcc;
+  --secondary-glow: #ff0077;
+  --accent-purple: #8b00ff;
+  --bg-deep: #030712;
+  --font-mono: 'Courier New', Courier, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-deep);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color: #e2e8f0;
+  user-select: none;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#webgl-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.hud-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.5rem;
+  background: radial-gradient(circle at center, transparent 40%, rgba(3, 7, 18, 0.7) 100%);
+}
+
+.hud-header {
+  pointer-events: auto;
+}
+
+.hud-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(0, 255, 204, 0.1);
+  border: 1px solid rgba(0, 255, 204, 0.4);
+  color: var(--primary-glow);
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  border-radius: 4px;
+  margin-bottom: 0.8rem;
+  font-family: var(--font-mono);
+  box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+}
+
+.hud-title {
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: 6px;
+  background: linear-gradient(135deg, #ffffff 0%, var(--primary-glow) 50%, var(--secondary-glow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(0, 255, 204, 0.3);
+}
+
+.hud-subtitle {
+  font-size: 1rem;
+  letter-spacing: 3px;
+  color: #94a3b8;
+  margin-top: 0.4rem;
+}
+
+.hud-center-status {
+  align-self: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.status-core {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  padding: 8px 18px;
+  border-radius: 9999px;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.status-core:hover {
+  border-color: var(--primary-glow);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+  transform: scale(1.05);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--primary-glow);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--primary-glow);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 15px var(--secondary-glow); }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.status-text {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 1.5px;
+  color: #cbd5e1;
+}
+
+.hud-footer {
+  pointer-events: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1.5rem;
+}
+
+.telemetry-panel {
+  display: flex;
+  gap: 2.5rem;
+}
+
+.telemetry-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.telemetry-item .label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: #64748b;
+  letter-spacing: 1.5px;
+}
+
+.telemetry-item .value {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.telemetry-item .ci-good {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.hud-controls-hint {
+  display: flex;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #64748b;
+  letter-spacing: 1px;
+}

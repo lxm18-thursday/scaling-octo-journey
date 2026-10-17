@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scaling Octo Journey | 无限尺度八爪深空跃迁</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐙</text></svg>" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="webgl-canvas"></canvas>
+      
+      <!-- Cyberpunk Deep-Space HUD Overlay -->
+      <div class="hud-overlay">
+        <header class="hud-header">
+          <div class="hud-badge">CI/CD AUTONOMOUS ENGINE · V0.1.0</div>
+          <h1 class="hud-title">SCALING OCTO JOURNEY</h1>
+          <p class="hud-subtitle">深渊裂隙 ⇄ 恒星网络 ⇄ 超维量子：八爪跨界跃迁</p>
+        </header>
+
+        <div class="hud-center-status">
+          <div class="status-ring"></div>
+          <div class="status-core">
+            <span class="pulse-dot"></span>
+            <span class="status-text" id="status-label">INITIALIZING OCTO NEURAL CORE...</span>
+          </div>
+        </div>
+
+        <footer class="hud-footer">
+          <div class="telemetry-panel">
+            <div class="telemetry-item">
+              <span class="label">SCALE EXPONENT</span>
+              <span class="value" id="telemetry-scale">10<sup id="scale-exp">-12</sup> m</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">TENTACLE ARRAYS</span>
+              <span class="value" id="telemetry-tentacles">8 / 8 ACTIVE</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">WARP FLUX</span>
+              <span class="value" id="telemetry-fps">-- FPS</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="label">CI STATUS</span>
+              <span class="value ci-good">ACTIONS READY</span>
+            </div>
+          </div>
+          <div class="hud-controls-hint">
+            <span>[Drag to Orbit]</span>
+            <span>[Scroll to Scale Shift]</span>
+            <span>[Click Core to Pulse]</span>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
